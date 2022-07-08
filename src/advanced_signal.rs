@@ -75,7 +75,7 @@ macro_rules! advanced_method {
     (fn $name:ident ($($var_name:ident: $var_type:ty),*| $($seccond_name:ident:$seccond_type:ty),*) -> $return:ty $body:block) => {
         fn $name(a: ($($var_type),*), b: Arc<Mutex<Vec<Box<dyn Any>>>>) -> $return {
             let mut _i = 0;
-            $(let $var_name: $var_type = *a.get(_i).unwrap();_i+=1;)*
+            $(let $var_name: $var_type = unsafe {std::ptr::read(a.get_row_ptr(_i).unwrap() as *const $var_type)};_i+=1;)*
             let mut _i = 0;
             let mut _data = b.lock().unwrap();
             $(let $seccond_name: &mut $seccond_type = unsafe {_data[_i].downcast_mut_unchecked::<$seccond_type>() }; _i+=1;)*
@@ -86,7 +86,7 @@ macro_rules! advanced_method {
     (async fn $name:ident ($($var_name:ident: $var_type:ty),*| $($seccond_name:ident:$seccond_type:ty),*) -> $return:ty $body:block) => {
         async fn $name(a: ($($var_type),*), b: Arc<Mutex<Vec<Box<dyn Any>>>>) -> $return {
             let mut _i = 0;
-            $(let $var_name: $var_type = *a.get(_i).unwrap();_i+=1;)*
+            $(let $var_name: $var_type = unsafe {std::ptr::read(a.get_row_ptr(_i).unwrap() as *const $var_type)};_i+=1;)*
             let mut _i = 0;
             let mut _data = b.lock().unwrap();
             $(let $seccond_name: &mut $seccond_type = unsafe {_data[_i].downcast_mut_unchecked::<$seccond_type>() }; _i+=1;)*
@@ -97,7 +97,7 @@ macro_rules! advanced_method {
     (pub fn $name:ident ($($var_name:ident: $var_type:ty),*| $($seccond_name:ident:$seccond_type:ty),*) -> $return:ty $body:block) => {
         pub fn $name(a: ($($var_type),*), b: Arc<Mutex<Vec<Box<dyn Any>>>>) -> $return {
             let mut _i = 0;
-            $(let $var_name: $var_type = *a.get(_i).unwrap();_i+=1;)*
+            $(let $var_name: $var_type = unsafe {std::ptr::read(a.get_row_ptr(_i).unwrap() as *const $var_type)};_i+=1;)*
             let mut _i = 0;
             let mut _data = b.lock().unwrap();
             $(let $seccond_name: &mut $seccond_type = unsafe {_data[_i].downcast_mut_unchecked::<$seccond_type>() }; _i+=1;)*
@@ -108,7 +108,7 @@ macro_rules! advanced_method {
     (pub async fn $name:ident ($($var_name:ident: $var_type:ty),*| $($seccond_name:ident:$seccond_type:ty),*) -> $return:ty $body:block) => {
         pub async fn $name(a: ($($var_type),*), b: Arc<Mutex<Vec<Box<dyn Any>>>>) -> $return {
             let mut _i = 0;
-            $(let $var_name: $var_type = *a.get(_i).unwrap();_i+=1;)*
+            $(let $var_name: $var_type = unsafe {std::ptr::read(a.get_row_ptr(_i).unwrap() as *const $var_type)};_i+=1;)*
             let mut _i = 0;
             let mut _data = b.lock().unwrap();
             $(let $seccond_name: &mut $seccond_type = unsafe {_data[_i].downcast_mut_unchecked::<$seccond_type>() }; _i+=1;)*
@@ -133,38 +133,4 @@ macro_rules! advanced_method {
     (pub async fn $name:ident ($($var_name:ident: $var_type:ty),*| $($seccond_name:ident:$seccond_type:ty),*)  $body:block) => {
         advanced_method!(pub async fn $name ($($var_name:$var_type),*|$($seccond_name:$seccond_type),*) -> () $body);
     };
-}
-
-mod test {
-    use tuple::TupleElements;
-
-    use super::*;
-
-    #[test]
-    fn test() {
-        let ttm = &32i32 as &dyn Any;
-        let t = unsafe { ttm.downcast_ref_unchecked::<u32>() };
-        println!("{}", t);
-        let mut sig = AdvancedSignal::new();
-        let sql = 53i32;
-        let mut data = Vec::new();
-        let mut data2 = Vec::new();
-        data.push(Box::new(sql) as Box<dyn Any>);
-        data2.push(Box::new(sql) as Box<dyn Any>);
-        sig.connect(&testing, data);
-        sig.connect(&testing2, data2);
-        sig.call((12, 32));
-    }
-
-    advanced_method! {
-        pub fn testing (test:i32, dd:i32 | sql: i32) {
-            println!("Testing");
-        }
-    }
-
-    advanced_method! {
-        pub fn testing2 (test:i32, dd:i32 | sql: i32) {
-            println!("Testing 2");
-        }
-    }
 }

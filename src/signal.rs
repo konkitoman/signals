@@ -1,15 +1,10 @@
-#[macro_export]
-macro_rules! signal {
-    ($a:ty => $b:ty) => {
-        Signal<'a, $a, $b>
-    };
+use std::thread::JoinHandle;
+
+pub struct Signal<A: 'static, R: 'static> {
+    pub methods: Vec<&'static (dyn Fn<A, Output = R> + Sync + Send)>,
 }
 
-pub struct Signal<'a, A, R> {
-    pub methods: Vec<&'a dyn Fn<A, Output = R>>,
-}
-
-impl<'a, A, R> Default for Signal<'a, A, R> {
+impl<A, R> Default for Signal<A, R> {
     fn default() -> Self {
         Self {
             methods: Vec::new(),
@@ -17,23 +12,43 @@ impl<'a, A, R> Default for Signal<'a, A, R> {
     }
 }
 
-impl<'a, A, R> Signal<'a, A, R> {
+impl<A, R> Signal<A, R> {
     pub fn new() -> Self {
         Self {
             ..Default::default()
         }
     }
 
-    /// Call with out return because is multiples results
-    pub fn call(&self, arg: A)
+    /// Calling from front to back, so the last added method will be the first!
+    /// This will call all the methods sync!
+    pub fn call(&self, arg: A) -> Vec<R>
     where
         A: Clone,
     {
-        let mut tmp_methods = self.methods.clone();
-        tmp_methods.reverse();
-        for method in tmp_methods.iter() {
-            method.call(arg.clone());
+        let mut out = Vec::new();
+        let len = self.methods.len();
+        for i in 0..len {
+            let i = (len - 1) - i;
+            out.push(self.methods[i].call(arg.clone()));
         }
+        out
+    }
+
+    pub fn call_async(&self, arg: A) -> Vec<JoinHandle<R>>
+    where
+        A: Clone + Sync + Send,
+        R: Sync + Send,
+    {
+        let mut out = Vec::new();
+        let len = self.methods.len();
+        for i in 0..len {
+            let i = (len - 1) - i;
+            let arg = arg.clone();
+            let func = self.methods[i].clone();
+
+            out.push(std::thread::spawn(move || func.call(arg)));
+        }
+        out
     }
 
     /// Call last function added if is emply will return default value
@@ -47,11 +62,13 @@ impl<'a, A, R> Signal<'a, A, R> {
         return Default::default();
     }
 
-    pub fn connect(&mut self, method: &'a dyn Fn<A, Output = R>) {
+    /// Connect a method
+    pub fn connect(&mut self, method: &'static (dyn Fn<A, Output = R> + Send + Sync)) {
         self.methods.push(method);
     }
 
-    pub fn disconnect(&mut self, method: &'a dyn Fn<A, Output = R>) {
+    /// Remove a method
+    pub fn disconnect(&mut self, method: &'static (dyn Fn<A, Output = R> + Send + Sync)) {
         self.methods
             .retain(|m| *m as *const _ != method as *const _)
     }

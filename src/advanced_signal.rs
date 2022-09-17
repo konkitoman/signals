@@ -1,19 +1,16 @@
 use std::{
     any::Any,
     sync::{Arc, Mutex},
-    thread::JoinHandle,
 };
 
-pub struct AdvancedSignal<A: 'static, R: 'static> {
+pub struct AdvancedSignal<'a, A, R> {
     pub methods: Vec<(
-        &'static (dyn Fn<(A, Arc<Mutex<Vec<Box<dyn Any + Sync + Send>>>>), Output = R>
-                      + Sync
-                      + Send),
-        Arc<Mutex<Vec<Box<dyn Any + Sync + Send>>>>,
+        &'a dyn Fn<(A, Arc<Mutex<Vec<Box<dyn Any>>>>), Output = R>,
+        Arc<Mutex<Vec<Box<dyn Any>>>>,
     )>,
 }
 
-impl<A, R> Default for AdvancedSignal<A, R> {
+impl<'a, A, R> Default for AdvancedSignal<'a, A, R> {
     fn default() -> Self {
         Self {
             methods: Vec::new(),
@@ -21,43 +18,23 @@ impl<A, R> Default for AdvancedSignal<A, R> {
     }
 }
 
-impl<A, R> AdvancedSignal<A, R> {
+impl<'a, A, R> AdvancedSignal<'a, A, R> {
     pub fn new() -> Self {
         Self {
             ..Default::default()
         }
     }
 
-    pub fn call(&self, arg: A) -> Vec<R>
+    /// Call with out return because is multiples results
+    pub fn call(&self, arg: A)
     where
         A: Clone,
     {
-        let mut out = Vec::new();
-        let len = self.methods.len();
-        for i in 0..len {
-            let i = (len - 1) - i;
-            let method = &self.methods[i];
-            out.push(method.0(arg.clone(), method.1.clone()));
+        let mut tmp_methods = self.methods.clone();
+        tmp_methods.reverse();
+        for method in tmp_methods.iter() {
+            method.0.call((arg.clone(), method.1.clone()));
         }
-        out
-    }
-
-    pub fn call_async(&self, arg: A) -> Vec<JoinHandle<R>>
-    where
-        A: Clone + Sync + Send,
-        R: Sync + Send,
-    {
-        let mut out = Vec::new();
-        let len = self.methods.len();
-        for i in 0..len {
-            let i = (len - 1) - i;
-            let method = &self.methods[i];
-            let arg = arg.clone();
-            let method_store = method.1.clone();
-            let method = method.0.clone();
-            out.push(std::thread::spawn(move || method(arg, method_store)));
-        }
-        out
     }
 
     /// Call last function added if is emply will return default value
@@ -73,10 +50,8 @@ impl<A, R> AdvancedSignal<A, R> {
 
     pub fn connect(
         &mut self,
-        method: &'static (dyn Fn<(A, Arc<Mutex<Vec<Box<dyn Any + Send + Sync>>>>), Output = R>
-                      + Send
-                      + Sync),
-        aditionals: Vec<Box<dyn Any + Sync + Send>>,
+        method: &'a dyn Fn<(A, Arc<Mutex<Vec<Box<dyn Any>>>>), Output = R>,
+        aditionals: Vec<Box<dyn Any>>,
     ) {
         self.methods
             .push((method, Arc::new(Mutex::new(aditionals))));
@@ -84,9 +59,7 @@ impl<A, R> AdvancedSignal<A, R> {
 
     pub fn disconnect(
         &mut self,
-        method: &'static (dyn Fn<(A, Arc<Mutex<Vec<Box<dyn Any + Send + Sync>>>>), Output = R>
-                      + Send
-                      + Sync),
+        method: &'a dyn Fn<(A, Arc<Mutex<Vec<Box<dyn Any>>>>), Output = R>,
     ) {
         self.methods
             .retain(|m| m.0 as *const _ != method as *const _)
@@ -100,45 +73,45 @@ impl<A, R> AdvancedSignal<A, R> {
 #[macro_export]
 macro_rules! advanced_method {
     (fn $name:ident ($($var_name:ident: $var_type:ty),*| $($seccond_name:ident:$seccond_type:ty),*) -> $return:ty $body:block) => {
-        fn $name(a: ($($var_type),*), b: Arc<Mutex<Vec<Box<dyn Any + Send + Sync>>>>) -> $return {
+        fn $name(a: ($($var_type),*), b: Arc<Mutex<Vec<Box<dyn Any>>>>) -> $return {
             let mut _i = 0;
             $(let $var_name: $var_type = unsafe {std::ptr::read(a.get_row_ptr(_i).unwrap() as *const $var_type)};_i+=1;)*
             let mut _i = 0;
             let mut _data = b.lock().unwrap();
-            $(let $seccond_name: &mut $seccond_type = unsafe {_data[_i].downcast_mut::<$seccond_type>().unwrap() }; _i+=1;)*
+            $(let $seccond_name: &mut $seccond_type = unsafe {_data[_i].downcast_mut_unchecked::<$seccond_type>() }; _i+=1;)*
             $body
         }
     };
 
     (async fn $name:ident ($($var_name:ident: $var_type:ty),*| $($seccond_name:ident:$seccond_type:ty),*) -> $return:ty $body:block) => {
-        async fn $name(a: ($($var_type),*), b: Arc<Mutex<Vec<Box<dyn Any + Send + Sync>>>>) -> $return {
+        async fn $name(a: ($($var_type),*), b: Arc<Mutex<Vec<Box<dyn Any>>>>) -> $return {
             let mut _i = 0;
             $(let $var_name: $var_type = unsafe {std::ptr::read(a.get_row_ptr(_i).unwrap() as *const $var_type)};_i+=1;)*
             let mut _i = 0;
             let mut _data = b.lock().unwrap();
-            $(let $seccond_name: &mut $seccond_type = unsafe {_data[_i].downcast_mut::<$seccond_type>().unwrap() }; _i+=1;)*
+            $(let $seccond_name: &mut $seccond_type = unsafe {_data[_i].downcast_mut_unchecked::<$seccond_type>() }; _i+=1;)*
             $body
         }
     };
 
     (pub fn $name:ident ($($var_name:ident: $var_type:ty),*| $($seccond_name:ident:$seccond_type:ty),*) -> $return:ty $body:block) => {
-        pub fn $name(a: ($($var_type),*), b: Arc<Mutex<Vec<Box<dyn Any + Send + Sync>>>>) -> $return {
+        pub fn $name(a: ($($var_type),*), b: Arc<Mutex<Vec<Box<dyn Any>>>>) -> $return {
             let mut _i = 0;
             $(let $var_name: $var_type = unsafe {std::ptr::read(a.get_row_ptr(_i).unwrap() as *const $var_type)};_i+=1;)*
             let mut _i = 0;
             let mut _data = b.lock().unwrap();
-            $(let $seccond_name: &mut $seccond_type = unsafe {_data[_i].downcast_mut::<$seccond_type>().unwrap() }; _i+=1;)*
+            $(let $seccond_name: &mut $seccond_type = unsafe {_data[_i].downcast_mut_unchecked::<$seccond_type>() }; _i+=1;)*
             $body
         }
     };
 
     (pub async fn $name:ident ($($var_name:ident: $var_type:ty),*| $($seccond_name:ident:$seccond_type:ty),*) -> $return:ty $body:block) => {
-        pub async fn $name(a: ($($var_type),*), b: Arc<Mutex<Vec<Box<dyn Any + Send + Sync>>>>) -> $return {
+        pub async fn $name(a: ($($var_type),*), b: Arc<Mutex<Vec<Box<dyn Any>>>>) -> $return {
             let mut _i = 0;
             $(let $var_name: $var_type = unsafe {std::ptr::read(a.get_row_ptr(_i).unwrap() as *const $var_type)};_i+=1;)*
             let mut _i = 0;
             let mut _data = b.lock().unwrap();
-            $(let $seccond_name: &mut $seccond_type = unsafe {_data[_i].downcast_mut::<$seccond_type>().unwrap() }; _i+=1;)*
+            $(let $seccond_name: &mut $seccond_type = unsafe {_data[_i].downcast_mut_unchecked::<$seccond_type>() }; _i+=1;)*
             $body
         }
     };

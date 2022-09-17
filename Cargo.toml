@@ -1,10 +1,5 @@
 [package]
-name = "signals-kman"
+name = "signals"
 version = "0.0.3"
 edition = "2021"
 author = "konkitoman"
-
-[features]
-advanced = []
-
-

@@ -1,9 +1,11 @@
 [package]
 name = "signals-kman"
+description = "Callback library"
 version = "0.0.3"
 edition = "2021"
 author = "konkitoman"
 repository = "https://github.com/konkitoman/signals"
+licence = "GPL-3.0"
 
 [features]
 advanced = []

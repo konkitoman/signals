@@ -1,0 +1,1 @@
+/home/konkito/Dev/rust/signals/examples/simple/target/debug/simple: /home/konkito/Dev/rust/signals/examples/simple/src/main.rs /home/konkito/Dev/rust/signals/src/lib.rs /home/konkito/Dev/rust/signals/src/signal.rs

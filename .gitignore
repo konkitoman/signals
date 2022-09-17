@@ -1,4 +1,2 @@
-target
-Cargo.lock
+/target
 examples/*/target
-examples/*/Cargo.lock

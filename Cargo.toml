@@ -3,6 +3,7 @@ name = "signals-kman"
 version = "0.0.3"
 edition = "2021"
 author = "konkitoman"
+repository = "https://github.com/konkitoman/signals"
 
 [features]
 advanced = []

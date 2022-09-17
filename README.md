@@ -1,24 +1,9 @@
 # Signals
 
-## Simple  callback system for calling multiples callbacks.
+## For calling multiples callbacks.
 
 ### inspired by QT and godot.
 
 
 
-is including `Signal` is used
-
-```rust
-fn main(){
-    let mut signal = Signal::<(),()>::new();
-
-    signal.connect(&method_1);
-    
-    signal.call(());
-}
-
-
-fn method_1(){
-    println!("Method called!");
-}
-```
+To run a example you need to enter the example that you want to run and type in terminal `cargo run`

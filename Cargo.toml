@@ -6,6 +6,7 @@ edition = "2021"
 author = "konkitoman"
 repository = "https://github.com/konkitoman/signals"
 license = "GPL-3.0"
+keywords = ["signals", "signal", "callbacks", "callback"]
 
 [features]
 advanced = []
